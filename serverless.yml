@@ -1,0 +1,94 @@
+service: serverless-challenge
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  environment:
+    PG_HOST: ${self:custom.PG.HOST}
+    PG_PORT: ${self:custom.PG.PORT}
+
+custom:
+  PG:
+    HOST:
+      Fn::GetAtt: [postgresDB, Endpoint.Address]
+    PORT:
+      Fn::GetAtt: [postgresDB, Endpoint.Port]
+
+functions:
+  # findAll:
+  #   handler: handler.findAll
+  #   events:
+  #     - httpApi:
+  #         path: /
+  #         method: get
+  
+  findOne:
+    handler: handler.findOne
+    events:
+      - httpApi:
+          path: /{id}
+          method: get
+
+  create:
+    handler: handler.create
+    events:
+      - httpApi:
+          path: /
+          method: post
+
+  delete:
+    handler: handler.deleteOne
+    events:
+      - httpApi:
+          path: /{id}
+          method: delete
+
+  update:
+    handler: handler.update
+    events:
+      - httpApi:
+          path: /{id}
+          method: put
+
+resources:
+ Resources:
+  pgSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Access to Postgres
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '5432'
+        ToPort: '5432'
+        CidrIp: 0.0.0.0/0
+
+  postgresDB:
+    Type: "AWS::RDS::DBInstance"
+    Properties:
+      DBName: "serverless"
+      AllocatedStorage: 5
+      DBInstanceClass: "db.t2.micro"
+      Engine: "postgres"
+      EngineVersion: "11.16"
+      MasterUsername: "serverless"
+      MasterUserPassword: "serverless"
+      VPCSecurityGroups:
+      - Fn::GetAtt:
+        - pgSecurityGroup
+        - GroupId
+      Tags:
+        -
+          Key: "Name"
+          Value: "serverless_db"
+    DeletionPolicy: "Snapshot"
+ Outputs:
+    pgEndpoint:
+      Description: "JDBC connection string for database"
+      Value:
+        Fn::GetAtt:
+          - postgresDB
+          - Endpoint.Address
+
+plugins:
+  - serverless-plugin-typescript
